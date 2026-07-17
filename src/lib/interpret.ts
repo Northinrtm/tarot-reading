@@ -47,6 +47,7 @@ ${cardLines}
 export async function interpretReading(reading: Reading, question?: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
+    console.error("GROQ_API_KEY is not set in this environment, using static interpretation");
     return buildStaticInterpretation(reading);
   }
 

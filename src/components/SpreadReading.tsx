@@ -123,7 +123,7 @@ export function SpreadReading() {
                   >
                     {summaryMatch && (
                       <span className="block text-violet-300 text-xs uppercase tracking-wide mb-1.5">
-                        Итог
+                        Послание карт
                       </span>
                     )}
                     {body.split("\n").map((line, j, arr) => (

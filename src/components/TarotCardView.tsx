@@ -5,7 +5,7 @@ export function TarotCardView({ card, reversed }: DrawnCard) {
   return (
     <div className="flex flex-col items-center gap-2 w-32">
       <div
-        className={`relative w-32 h-48 rounded-lg overflow-hidden border border-violet-400/40 bg-violet-950 shadow-lg transition-transform ${
+        className={`relative w-32 aspect-[825/1429] rounded-lg overflow-hidden border border-violet-400/40 bg-violet-950 shadow-lg transition-transform ${
           reversed ? "rotate-180" : ""
         }`}
       >

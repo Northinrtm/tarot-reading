@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
 import { Reading } from "@/types/tarot";
+import { CUSTOM_QUESTION_SPREAD_SLUG } from "@/data/spreads";
 
 const GROQ_MODEL = "llama-3.1-8b-instant";
 
@@ -19,7 +20,29 @@ export function buildStaticInterpretation(reading: Reading): string {
   return lines.join("\n");
 }
 
-function buildPrompt(reading: Reading, question?: string): string {
+const COMMON_RULES = `Обращайся напрямую к человеку — на "вы" (например, "вас ждёт", "вам стоит"), а не в третьем лице.
+
+Пиши строго на русском языке. Это жёсткое требование: ни одна буква латинского алфавита не должна появиться нигде в тексте, даже внутри русских слов (например, недопустимо написание вроде "капitулировать" — только "капитулировать"). Перед тем как закончить, мысленно проверь каждое слово на отсутствие латинских букв.
+
+Запрещено начинать текст со вступления или мета-комментария о самом раскладе, вопросе или процессе гадания. Категорически нельзя использовать фразы и их аналоги: "давайте разберёмся", "что говорит нам расклад", "начнём с анализа карт", "вы обратились ко мне", "ваш вопрос имеет для меня значение", "итак".`;
+
+function buildSingleCardPrompt(reading: Reading, question?: string): string {
+  const { card, reversed } = reading.cards[0];
+  const meaning = reversed ? card.reversed : card.upright;
+  const orientation = reversed ? "перевёрнутая" : "прямая";
+
+  const questionLine = question
+    ? `Человек задал такой вопрос: «${question}»\nОтвечай по существу именно на этот вопрос.\n`
+    : "Это гадание на сегодняшний день — говори именно о сегодняшнем дне.\n";
+
+  return `Ты — опытный таролог. Человеку выпала одна карта: ${card.name} (${orientation}), ключевые значения — ${meaning}.
+${questionLine}
+${COMMON_RULES}
+
+Не называй карту формальной позицией расклада (не пиши "на позицию «${reading.spread.positions[0].label}» выпало..." и подобное) — органично вплети смысл карты в связный ответ, как будто говоришь об этом дне или вопросе напрямую, а карта — лишь образ, который помогает раскрыть мысль. Не повторяй одну и ту же мысль дважды разными словами. Напиши один цельный абзац без подзаголовков и без отдельного вывода в конце, 90-140 слов.`;
+}
+
+function buildMultiCardPrompt(reading: Reading, question?: string): string {
   const cardLines = reading.cards
     .map(({ card, reversed }, i) => {
       const position = reading.spread.positions[i];
@@ -29,27 +52,37 @@ function buildPrompt(reading: Reading, question?: string): string {
     })
     .join("\n");
 
+  const isUnspokenCustomQuestion = !question && reading.spread.slug === CUSTOM_QUESTION_SPREAD_SLUG;
+
   const questionLine = question
     ? `Человек задал такой вопрос: «${question}»\nОтвечай по существу именно на этот вопрос, используя карты как основу для ответа. Первое предложение должно органично отвечать на суть заданного вопроса своими словами (не цитируя его дословно и не называя позицию расклада), и только затем упоминать первую карту.\n`
-    : "";
+    : isUnspokenCustomQuestion
+      ? `Человек не стал записывать вопрос словами и просто держит его в мыслях, доверившись картам. Обращайся к тому, что у него сейчас на душе, не выдумывая и не формулируя за него конкретный вопрос — говори о том, что для него действительно важно прямо сейчас, опираясь на карты.\n`
+      : "";
 
   return `Ты — опытный таролог. Дай связную, тёплую и содержательную трактовку расклада "${reading.spread.name}" (${reading.spread.description}).
 ${questionLine}Карты расклада:
 ${cardLines}
 
-Обращайся напрямую к человеку — на "вы" (например, "вас ждёт", "вам стоит"), а не в третьем лице.
+${COMMON_RULES}
 
-Пиши строго на русском языке. Это жёсткое требование: ни одна буква латинского алфавита не должна появиться нигде в тексте, даже внутри русских слов (например, недопустимо написание вроде "капitулировать" — только "капитулировать"). Перед тем как закончить, мысленно проверь каждое слово на отсутствие латинских букв.
+Нельзя начинать текст с формального названия первой позиции расклада (например, нельзя начинать с "Выпавшая на позицию «${reading.spread.positions[0].label}» карта...").
 
-Запрещено начинать текст со вступления или мета-комментария о самом раскладе, вопросе или процессе гадания. Категорически нельзя использовать фразы и их аналоги: "давайте разберёмся", "что говорит нам расклад", "начнём с анализа карт", "вы обратились ко мне", "ваш вопрос имеет для меня значение", "итак", а также нельзя начинать текст с формального названия первой позиции расклада (например, нельзя начинать с "Выпавшая на позицию «${reading.spread.positions[0].label}» карта...").
+Начиная со второй карты, для каждой позиции расклада явно назови выпавшую карту и объясни, что она означает в этой позиции (например: "На позиции «${reading.spread.positions[1]?.label ?? reading.spread.positions[0].label}» выпал(а) [название карты] — это говорит о..."), а затем свяжи это значение с ответом на вопрос. Не повторяй уже сказанное про карту второй раз другими словами.
 
-Начиная со второй карты, для каждой позиции расклада явно назови выпавшую карту и объясни, что она означает в этой позиции (например: "На позиции «${reading.spread.positions[1]?.label ?? reading.spread.positions[0].label}» выпал(а) [название карты] — это говорит о..."), а затем свяжи это значение с ответом на вопрос. Ни одна карта, включая последнюю, не должна остаться без объяснения.
+В раскладе ровно ${reading.cards.length} позиций: ${reading.spread.positions.map((p) => `«${p.label}»`).join(", ")}. Перед тем как написать абзац "Итог:", проверь по этому списку, что ты объяснил карту на каждой из этих позиций без единого пропуска — если какая-то позиция забыта, обязательно вернись и добавь её объяснение раньше вывода.
 
 Структура текста строго из двух частей, разделённых пустой строкой:
 1) Основная часть — разбор каждой карты по позициям, как описано выше.
-2) Отдельный последний абзац, который начинается ровно со слова "Итог:" и затем даёт краткий связный вывод (2-4 предложения), объединяющий все карты в общий ответ на вопрос.
+2) Отдельный последний абзац, который начинается ровно со слова "Итог:" и затем даёт краткий связный вывод (2-4 предложения), объединяющий все карты в общий ответ на вопрос, не повторяя дословно то, что уже было сказано выше.
 
 Не используй никакие другие списки или заголовки, кроме этого одного слова "Итог:" в начале последнего абзаца. Общий объём — 250-350 слов.`;
+}
+
+function buildPrompt(reading: Reading, question?: string): string {
+  return reading.cards.length === 1
+    ? buildSingleCardPrompt(reading, question)
+    : buildMultiCardPrompt(reading, question);
 }
 
 // Разрешаем латиницу только внутри названий позиций/карт не встречается,
@@ -87,14 +120,18 @@ export async function interpretReading(reading: Reading, question?: string): Pro
   try {
     const groq = new Groq({ apiKey });
 
-    let text = await requestGroqInterpretation(groq, reading, question);
-    if (text && LATIN_LETTERS.test(text)) {
-      console.error("Groq response contained Latin letters, retrying once:", text);
+    let text: string | undefined;
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       text = await requestGroqInterpretation(groq, reading, question);
+      if (text && !LATIN_LETTERS.test(text)) {
+        break;
+      }
+      console.error(`Groq response invalid on attempt ${attempt}/${maxAttempts}:`, text);
     }
 
     if (!text || LATIN_LETTERS.test(text)) {
-      console.error("Groq response still invalid after retry, falling back to static text");
+      console.error("Groq response still invalid after all attempts, falling back to static text");
       return buildStaticInterpretation(reading);
     }
 

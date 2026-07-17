@@ -6,6 +6,7 @@ import { drawReading } from "@/lib/tarot";
 import { buildStaticInterpretation } from "@/lib/interpret";
 import { Reading } from "@/types/tarot";
 import { TarotCardView } from "@/components/TarotCardView";
+import { OracleLoader } from "@/components/OracleLoader";
 
 export function SpreadReading() {
   const [spreadSlug, setSpreadSlug] = useState(SPREADS[0].slug);
@@ -20,7 +21,7 @@ export function SpreadReading() {
   async function handleDraw() {
     const newReading = drawReading(spread);
     setReading(newReading);
-    setInterpretation(buildStaticInterpretation(newReading));
+    setInterpretation("");
     setLoading(true);
 
     try {
@@ -36,9 +37,11 @@ export function SpreadReading() {
       if (res.ok) {
         const data = await res.json();
         setInterpretation(data.text);
+      } else {
+        setInterpretation(buildStaticInterpretation(newReading));
       }
     } catch {
-      // остаётся базовая трактовка, уже показанная выше
+      setInterpretation(buildStaticInterpretation(newReading));
     } finally {
       setLoading(false);
     }
@@ -98,19 +101,20 @@ export function SpreadReading() {
             ))}
           </div>
 
-          <div className="text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-6 max-w-xl text-sm leading-relaxed shadow-lg">
-            {interpretation.split(/\n{2,}/).map((paragraph, i) => (
-              <p key={i} className={i > 0 ? "mt-4" : undefined}>
-                {paragraph.split("\n").map((line, j, arr) => (
-                  <span key={j}>
-                    {line}
-                    {j < arr.length - 1 && <br />}
-                  </span>
-                ))}
-              </p>
-            ))}
-            {loading && (
-              <p className="mt-4 text-violet-400 text-xs italic">…трактовка уточняется</p>
+          <div className="text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-6 max-w-xl w-full text-sm leading-relaxed shadow-lg">
+            {loading ? (
+              <OracleLoader />
+            ) : (
+              interpretation.split(/\n{2,}/).map((paragraph, i) => (
+                <p key={i} className={i > 0 ? "mt-4" : undefined}>
+                  {paragraph.split("\n").map((line, j, arr) => (
+                    <span key={j}>
+                      {line}
+                      {j < arr.length - 1 && <br />}
+                    </span>
+                  ))}
+                </p>
+              ))
             )}
           </div>
         </div>

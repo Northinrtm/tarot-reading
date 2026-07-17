@@ -27,7 +27,21 @@ export const SPREADS: SpreadDef[] = [
       { id: "outcome", label: "Итог", hint: "Вероятный результат" },
     ],
   },
+  {
+    slug: "custom-question",
+    name: "Свой вопрос",
+    description: "Расклад из 5 карт под ваш собственный вопрос или мысль.",
+    positions: [
+      { id: "essence", label: "Суть вопроса", hint: "Что происходит на самом деле" },
+      { id: "helps", label: "Что помогает", hint: "Ресурсы, союзники, сильные стороны" },
+      { id: "hinders", label: "Что мешает", hint: "Препятствия, блоки, страхи" },
+      { id: "advice", label: "Совет", hint: "Как лучше действовать" },
+      { id: "outcome", label: "Вероятный итог", hint: "К чему всё идёт" },
+    ],
+  },
 ];
+
+export const CUSTOM_QUESTION_SPREAD_SLUG = "custom-question";
 
 export function getSpreadBySlug(slug: string): SpreadDef | undefined {
   return SPREADS.find((s) => s.slug === slug);

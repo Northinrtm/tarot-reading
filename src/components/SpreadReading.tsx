@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SPREADS } from "@/data/spreads";
+import { SPREADS, CUSTOM_QUESTION_SPREAD_SLUG } from "@/data/spreads";
 import { drawReading } from "@/lib/tarot";
 import { buildStaticInterpretation } from "@/lib/interpret";
 import { Reading } from "@/types/tarot";
@@ -9,11 +9,13 @@ import { TarotCardView } from "@/components/TarotCardView";
 
 export function SpreadReading() {
   const [spreadSlug, setSpreadSlug] = useState(SPREADS[0].slug);
+  const [question, setQuestion] = useState("");
   const [reading, setReading] = useState<Reading | null>(null);
   const [interpretation, setInterpretation] = useState("");
   const [loading, setLoading] = useState(false);
 
   const spread = SPREADS.find((s) => s.slug === spreadSlug)!;
+  const isCustom = spreadSlug === CUSTOM_QUESTION_SPREAD_SLUG;
 
   async function handleDraw() {
     const newReading = drawReading(spread);
@@ -27,6 +29,7 @@ export function SpreadReading() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           spreadSlug: newReading.spread.slug,
+          question: isCustom && question.trim() ? question.trim() : undefined,
           cards: newReading.cards.map(({ card, reversed }) => ({ slug: card.slug, reversed })),
         }),
       });
@@ -59,6 +62,15 @@ export function SpreadReading() {
           ))}
         </select>
         <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
+        {isCustom && (
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Опишите свой вопрос или мысль, на которую хотите погадать…"
+            rows={3}
+            className="w-full max-w-md bg-violet-950 border border-violet-400/40 rounded-md px-3 py-2 text-violet-100 placeholder:text-violet-500 resize-none"
+          />
+        )}
         <button
           onClick={handleDraw}
           className="mt-2 px-6 py-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"

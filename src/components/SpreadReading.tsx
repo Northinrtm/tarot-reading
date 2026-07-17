@@ -63,13 +63,19 @@ export function SpreadReading() {
         </select>
         <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
         {isCustom && (
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Опишите свой вопрос или мысль, на которую хотите погадать…"
-            rows={3}
-            className="w-full max-w-md bg-violet-950 border border-violet-400/40 rounded-md px-3 py-2 text-violet-100 placeholder:text-violet-500 resize-none"
-          />
+          <div className="w-full max-w-md flex flex-col gap-1.5">
+            <label htmlFor="question" className="text-violet-300 text-xs uppercase tracking-wide">
+              Ваш вопрос
+            </label>
+            <textarea
+              id="question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="О чём хотите спросить карты? Например: «Стоит ли мне сейчас менять работу?»"
+              rows={3}
+              className="w-full bg-violet-950/60 border border-violet-400/40 rounded-lg px-4 py-3 text-violet-100 placeholder:text-violet-500 resize-none shadow-inner focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-shadow"
+            />
+          </div>
         )}
         <button
           onClick={handleDraw}
@@ -92,9 +98,20 @@ export function SpreadReading() {
             ))}
           </div>
 
-          <div className="whitespace-pre-wrap text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-4 max-w-xl text-sm">
-            {interpretation}
-            {loading && <span className="text-violet-400"> …трактовка уточняется</span>}
+          <div className="text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-6 max-w-xl text-sm leading-relaxed shadow-lg">
+            {interpretation.split(/\n{2,}/).map((paragraph, i) => (
+              <p key={i} className={i > 0 ? "mt-4" : undefined}>
+                {paragraph.split("\n").map((line, j, arr) => (
+                  <span key={j}>
+                    {line}
+                    {j < arr.length - 1 && <br />}
+                  </span>
+                ))}
+              </p>
+            ))}
+            {loading && (
+              <p className="mt-4 text-violet-400 text-xs italic">…трактовка уточняется</p>
+            )}
           </div>
         </div>
       )}

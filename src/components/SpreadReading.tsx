@@ -64,7 +64,9 @@ export function SpreadReading() {
             </option>
           ))}
         </select>
-        <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
+        {!isCustom && (
+          <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
+        )}
         {isCustom && (
           <div className="w-full max-w-md flex flex-col gap-1.5">
             <label htmlFor="question" className="text-violet-300 text-sm">
@@ -104,16 +106,35 @@ export function SpreadReading() {
             {loading ? (
               <OracleLoader />
             ) : (
-              interpretation.split(/\n{2,}/).map((paragraph, i) => (
-                <p key={i} className={i > 0 ? "mt-4" : undefined}>
-                  {paragraph.split("\n").map((line, j, arr) => (
-                    <span key={j}>
-                      {line}
-                      {j < arr.length - 1 && <br />}
-                    </span>
-                  ))}
-                </p>
-              ))
+              interpretation.split(/\n{2,}/).map((paragraph, i) => {
+                const summaryMatch = paragraph.match(/^Итог:\s*/);
+                const body = summaryMatch ? paragraph.slice(summaryMatch[0].length) : paragraph;
+
+                return (
+                  <p
+                    key={i}
+                    className={
+                      summaryMatch
+                        ? "mt-5 pt-4 border-t border-violet-400/30"
+                        : i > 0
+                          ? "mt-4"
+                          : undefined
+                    }
+                  >
+                    {summaryMatch && (
+                      <span className="block text-violet-300 text-xs uppercase tracking-wide mb-1.5">
+                        Итог
+                      </span>
+                    )}
+                    {body.split("\n").map((line, j, arr) => (
+                      <span key={j}>
+                        {line}
+                        {j < arr.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </p>
+                );
+              })
             )}
           </div>
         </div>

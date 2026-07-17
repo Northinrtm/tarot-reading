@@ -67,14 +67,13 @@ export function SpreadReading() {
         <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
         {isCustom && (
           <div className="w-full max-w-md flex flex-col gap-1.5">
-            <label htmlFor="question" className="text-violet-300 text-xs uppercase tracking-wide">
-              Ваш вопрос
+            <label htmlFor="question" className="text-violet-300 text-sm">
+              О чём вы хотите спросить у карт?
             </label>
             <textarea
               id="question"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="О чём хотите спросить карты? Например: «Стоит ли мне сейчас менять работу?»"
               rows={3}
               className="w-full bg-violet-950/60 border border-violet-400/40 rounded-lg px-4 py-3 text-violet-100 placeholder:text-violet-500 resize-none shadow-inner focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-shadow"
             />

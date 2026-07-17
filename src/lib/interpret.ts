@@ -61,7 +61,8 @@ export async function interpretReading(reading: Reading, question?: string): Pro
 
     const text = completion.choices[0]?.message?.content?.trim();
     return text || buildStaticInterpretation(reading);
-  } catch {
+  } catch (error) {
+    console.error("Groq interpretation failed, falling back to static text:", error);
     return buildStaticInterpretation(reading);
   }
 }

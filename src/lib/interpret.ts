@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { Reading } from "@/types/tarot";
 import { CUSTOM_QUESTION_SPREAD_SLUG } from "@/data/spreads";
+import { getCardName, getPositionLabel, getSpreadDescription, getSpreadName, Locale } from "@/lib/i18n";
 
 const GROQ_MODEL = "llama-3.1-8b-instant";
 
@@ -9,9 +10,14 @@ const GROQ_MODEL = "llama-3.1-8b-instant";
  * Работает без внешних сервисов — используется как запасной вариант,
  * если ключ Groq не задан или запрос к API не удался.
  */
-export function buildStaticInterpretation(reading: Reading): string {
+export function buildStaticInterpretation(reading: Reading, locale: Locale = "ru"): string {
   const lines = reading.cards.map(({ card, reversed }, i) => {
     const position = reading.spread.positions[i];
+    if (locale === "en") {
+      const orientation = reversed ? "reversed" : "upright";
+      return `${getPositionLabel(position, locale)}: ${getCardName(card, locale)} (${orientation}). Reflect on how this card's energy shapes this part of your question.`;
+    }
+
     const meaning = reversed ? card.reversed : card.upright;
     const orientation = reversed ? "перевёрнутая" : "прямая";
     return `${position.label}: ${card.name} (${orientation}) — ${meaning}.`;
@@ -26,9 +32,23 @@ const COMMON_RULES = `Обращайся напрямую к человеку �
 
 Запрещено начинать текст со вступления или мета-комментария о самом раскладе, вопросе или процессе гадания. Категорически нельзя использовать фразы и их аналоги: "давайте разберёмся", "что говорит нам расклад", "начнём с анализа карт", "вы обратились ко мне", "ваш вопрос имеет для меня значение", "итак".`;
 
-function buildSingleCardPrompt(reading: Reading, question?: string): string {
+function buildSingleCardPrompt(reading: Reading, question: string | undefined, locale: Locale): string {
   const { card, reversed } = reading.cards[0];
   const meaning = reversed ? card.reversed : card.upright;
+
+  if (locale === "en") {
+    const cardName = getCardName(card, locale);
+    const orientation = reversed ? "reversed" : "upright";
+    const questionLine = question
+      ? `The person asked: “${question}” Answer this specific question directly.`
+      : "This is a card-of-the-day reading. Speak specifically about today.";
+
+    return `You are an experienced tarot reader. The card is ${cardName} (${orientation}). Its source keywords, provided in Russian, are: ${meaning}.
+${questionLine}
+
+Write strictly in natural English. Address the person directly as “you”. Do not begin with an introduction or commentary about the reading process. Weave the card naturally into one coherent paragraph of 90–140 words. Do not use headings, repeat the same idea, or present the future as certain.`;
+  }
+
   const orientation = reversed ? "перевёрнутая" : "прямая";
 
   const questionLine = question
@@ -42,7 +62,7 @@ ${COMMON_RULES}
 Не называй карту формальной позицией расклада (не пиши "на позицию «${reading.spread.positions[0].label}» выпало..." и подобное) — органично вплети смысл карты в связный ответ, как будто говоришь об этом дне или вопросе напрямую, а карта — лишь образ, который помогает раскрыть мысль. Не повторяй одну и ту же мысль дважды разными словами. Напиши один цельный абзац без подзаголовков и без отдельного вывода в конце, 90-140 слов.`;
 }
 
-function buildMultiCardPrompt(reading: Reading, question?: string): string {
+function buildMultiCardPrompt(reading: Reading, question: string | undefined, locale: Locale): string {
   const cardLines = reading.cards
     .map(({ card, reversed }, i) => {
       const position = reading.spread.positions[i];
@@ -51,6 +71,30 @@ function buildMultiCardPrompt(reading: Reading, question?: string): string {
       return `- ${position.label}: ${card.name} (${orientation}) — ключевые значения: ${meaning}`;
     })
     .join("\n");
+
+  if (locale === "en") {
+    const englishCardLines = reading.cards
+      .map(({ card, reversed }, i) => {
+        const position = reading.spread.positions[i];
+        const meaning = reversed ? card.reversed : card.upright;
+        const orientation = reversed ? "reversed" : "upright";
+        return `- ${getPositionLabel(position, locale)}: ${getCardName(card, locale)} (${orientation}); source keywords in Russian: ${meaning}`;
+      })
+      .join("\n");
+    const questionLine = question
+      ? `The person asked: “${question}” Answer that question directly.`
+      : "Do not invent a specific question; focus on what the spread itself reveals.";
+
+    return `You are an experienced tarot reader. Interpret the “${getSpreadName(reading.spread, locale)}” spread (${getSpreadDescription(reading.spread, locale)}).
+${questionLine}
+
+Cards:
+${englishCardLines}
+
+Write strictly in natural English and address the person directly as “you”. Explain every position and explicitly name its card. Treat outcomes as possibilities, not certainties. Do not begin with an introduction or meta-commentary.
+
+Use exactly two parts separated by a blank line: first, a connected interpretation of every card; second, a final paragraph beginning exactly with “Summary:” that combines the cards into practical guidance. Use no other headings or lists. Total length: 250–350 words.`;
+  }
 
   const isUnspokenCustomQuestion = !question && reading.spread.slug === CUSTOM_QUESTION_SPREAD_SLUG;
 
@@ -79,10 +123,10 @@ ${COMMON_RULES}
 Не используй никакие другие списки или заголовки, кроме этого одного слова "Итог:" в начале последнего абзаца. Общий объём — 250-350 слов.`;
 }
 
-function buildPrompt(reading: Reading, question?: string): string {
+function buildPrompt(reading: Reading, question: string | undefined, locale: Locale): string {
   return reading.cards.length === 1
-    ? buildSingleCardPrompt(reading, question)
-    : buildMultiCardPrompt(reading, question);
+    ? buildSingleCardPrompt(reading, question, locale)
+    : buildMultiCardPrompt(reading, question, locale);
 }
 
 // Разрешаем латиницу только внутри названий позиций/карт не встречается,
@@ -93,10 +137,11 @@ async function requestGroqInterpretation(
   groq: Groq,
   reading: Reading,
   question: string | undefined,
+  locale: Locale,
 ): Promise<string | undefined> {
   const completion = await groq.chat.completions.create({
     model: GROQ_MODEL,
-    messages: [{ role: "user", content: buildPrompt(reading, question) }],
+    messages: [{ role: "user", content: buildPrompt(reading, question, locale) }],
     temperature: 0.8,
     max_tokens: 900,
   });
@@ -110,11 +155,15 @@ async function requestGroqInterpretation(
  * При отсутствии GROQ_API_KEY, ошибке запроса или испорченном ответе
  * (смешение латиницы с кириллицей) используется buildStaticInterpretation.
  */
-export async function interpretReading(reading: Reading, question?: string): Promise<string> {
+export async function interpretReading(
+  reading: Reading,
+  question?: string,
+  locale: Locale = "ru",
+): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     console.error("GROQ_API_KEY is not set in this environment, using static interpretation");
-    return buildStaticInterpretation(reading);
+    return buildStaticInterpretation(reading, locale);
   }
 
   try {
@@ -123,21 +172,21 @@ export async function interpretReading(reading: Reading, question?: string): Pro
     let text: string | undefined;
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      text = await requestGroqInterpretation(groq, reading, question);
-      if (text && !LATIN_LETTERS.test(text)) {
+      text = await requestGroqInterpretation(groq, reading, question, locale);
+      if (text && (locale === "en" || !LATIN_LETTERS.test(text))) {
         break;
       }
       console.error(`Groq response invalid on attempt ${attempt}/${maxAttempts}:`, text);
     }
 
-    if (!text || LATIN_LETTERS.test(text)) {
+    if (!text || (locale === "ru" && LATIN_LETTERS.test(text))) {
       console.error("Groq response still invalid after all attempts, falling back to static text");
-      return buildStaticInterpretation(reading);
+      return buildStaticInterpretation(reading, locale);
     }
 
     return text;
   } catch (error) {
     console.error("Groq interpretation failed, falling back to static text:", error);
-    return buildStaticInterpretation(reading);
+    return buildStaticInterpretation(reading, locale);
   }
 }

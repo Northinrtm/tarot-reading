@@ -1,12 +1,15 @@
 import Image from "next/image";
 import { DrawnCard } from "@/types/tarot";
+import { getCardName, Locale, UI_TEXT } from "@/lib/i18n";
 
 interface TarotCardViewProps extends DrawnCard {
   compact?: boolean;
+  locale: Locale;
 }
 
-export function TarotCardView({ card, reversed, compact = false }: TarotCardViewProps) {
+export function TarotCardView({ card, reversed, compact = false, locale }: TarotCardViewProps) {
   const width = compact ? "w-20 sm:w-32" : "w-32";
+  const cardName = getCardName(card, locale);
 
   return (
     <div className={`flex flex-col items-center gap-2 ${width}`}>
@@ -17,17 +20,17 @@ export function TarotCardView({ card, reversed, compact = false }: TarotCardView
       >
         <Image
           src={card.image}
-          alt={card.name}
+          alt={cardName}
           fill
           sizes={compact ? "(min-width: 640px) 128px, 80px" : "128px"}
           className="object-cover"
         />
       </div>
       <span className="text-violet-100 text-sm font-medium text-center leading-tight">
-        {card.name}
+        {cardName}
       </span>
       <div className="text-xs text-violet-300 text-center">
-        {reversed ? "перевёрнутая" : "прямая"}
+        {reversed ? UI_TEXT[locale].reversed : UI_TEXT[locale].upright}
       </div>
     </div>
   );

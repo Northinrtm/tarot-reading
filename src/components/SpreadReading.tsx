@@ -8,8 +8,15 @@ import { DrawnCard, Reading } from "@/types/tarot";
 import { TarotCardView } from "@/components/TarotCardView";
 import { OracleLoader } from "@/components/OracleLoader";
 import { ManualCardPicker } from "@/components/ManualCardPicker";
+import {
+  getPositionLabel,
+  getSpreadDescription,
+  getSpreadName,
+  Locale,
+  UI_TEXT,
+} from "@/lib/i18n";
 
-export function SpreadReading() {
+export function SpreadReading({ locale }: { locale: Locale }) {
   const [spreadSlug, setSpreadSlug] = useState(SPREADS[0].slug);
   const [question, setQuestion] = useState("");
   const [reading, setReading] = useState<Reading | null>(null);
@@ -21,6 +28,7 @@ export function SpreadReading() {
   const spread = SPREADS.find((s) => s.slug === spreadSlug)!;
   const isCustom = spreadSlug === CUSTOM_QUESTION_SPREAD_SLUG;
   const isManual = spread.selectionMode === "manual";
+  const text = UI_TEXT[locale];
 
   async function requestInterpretation(newReading: Reading) {
     setReading(newReading);
@@ -33,6 +41,7 @@ export function SpreadReading() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           spreadSlug: newReading.spread.slug,
+          locale,
           question: isCustom && question.trim() ? question.trim() : undefined,
           cards: newReading.cards.map(({ card, reversed }) => ({ slug: card.slug, reversed })),
         }),
@@ -41,10 +50,10 @@ export function SpreadReading() {
         const data = await res.json();
         setInterpretation(data.text);
       } else {
-        setInterpretation(buildStaticInterpretation(newReading));
+        setInterpretation(buildStaticInterpretation(newReading, locale));
       }
     } catch {
-      setInterpretation(buildStaticInterpretation(newReading));
+      setInterpretation(buildStaticInterpretation(newReading, locale));
     } finally {
       setLoading(false);
     }
@@ -95,17 +104,19 @@ export function SpreadReading() {
         >
           {SPREADS.map((s) => (
             <option key={s.slug} value={s.slug}>
-              {s.name}
+              {getSpreadName(s, locale)}
             </option>
           ))}
         </select>
         {!isCustom && (
-          <p className="text-violet-300 text-sm max-w-md text-center">{spread.description}</p>
+          <p className="text-violet-300 text-sm max-w-md text-center">
+            {getSpreadDescription(spread, locale)}
+          </p>
         )}
         {isCustom && (
           <div className="w-full max-w-md flex flex-col gap-1.5">
             <label htmlFor="question" className="text-violet-300 text-sm">
-              О чём вы хотите спросить у карт?
+              {text.questionLabel}
             </label>
             <textarea
               id="question"
@@ -120,7 +131,11 @@ export function SpreadReading() {
           onClick={isManual ? startManualSelection : handleDraw}
           className="mt-2 px-6 py-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
         >
-          {isManual && manualDeck.length > 0 ? "Перемешать ещё раз" : isManual ? "Перемешать колоду" : "Разложить карты"}
+          {isManual && manualDeck.length > 0
+            ? text.reshuffle
+            : isManual
+              ? text.shuffle
+              : text.draw}
         </button>
       </div>
 
@@ -130,6 +145,7 @@ export function SpreadReading() {
           positions={spread.positions}
           selectedIndexes={selectedIndexes}
           onSelect={handleManualSelect}
+          locale={locale}
         />
       )}
 
@@ -140,9 +156,9 @@ export function SpreadReading() {
               {reading.cards.map((drawn, i) => (
                 <div key={i} className="flex flex-col items-center gap-2">
                   <span className="text-violet-400 text-xs uppercase tracking-wide">
-                    {reading.spread.positions[i].label}
+                    {getPositionLabel(reading.spread.positions[i], locale)}
                   </span>
-                  <TarotCardView {...drawn} />
+                  <TarotCardView {...drawn} locale={locale} />
                 </div>
               ))}
             </div>
@@ -150,10 +166,10 @@ export function SpreadReading() {
 
           <div className="text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-6 max-w-xl w-full text-sm leading-relaxed shadow-lg">
             {loading ? (
-              <OracleLoader />
+              <OracleLoader locale={locale} />
             ) : (
               interpretation.split(/\n{2,}/).map((paragraph, i) => {
-                const summaryMatch = paragraph.match(/^Итог:\s*/);
+                const summaryMatch = paragraph.match(/^(?:Итог|Summary):\s*/);
                 const body = summaryMatch ? paragraph.slice(summaryMatch[0].length) : paragraph;
 
                 return (
@@ -169,7 +185,7 @@ export function SpreadReading() {
                   >
                     {summaryMatch && (
                       <span className="block text-violet-300 text-xs uppercase tracking-wide mb-1.5">
-                        Послание карт
+                        {text.message}
                       </span>
                     )}
                     {body.split("\n").map((line, j, arr) => (

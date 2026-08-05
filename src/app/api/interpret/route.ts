@@ -3,9 +3,11 @@ import { interpretReading } from "@/lib/interpret";
 import { getSpreadBySlug } from "@/data/spreads";
 import { getCardBySlug } from "@/data/cards";
 import { Reading } from "@/types/tarot";
+import { Locale } from "@/lib/i18n";
 
 interface InterpretRequestBody {
   spreadSlug: string;
+  locale?: Locale;
   question?: string;
   cards: { slug: string; reversed: boolean }[];
 }
@@ -31,7 +33,8 @@ export async function POST(request: NextRequest) {
   }
 
   const reading: Reading = { spread, cards, createdAt: new Date().toISOString() };
-  const text = await interpretReading(reading, body.question);
+  const locale: Locale = body.locale === "en" ? "en" : "ru";
+  const text = await interpretReading(reading, body.question, locale);
 
   return NextResponse.json({ text });
 }

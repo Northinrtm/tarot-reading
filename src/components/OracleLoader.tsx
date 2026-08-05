@@ -1,4 +1,6 @@
-export function OracleLoader() {
+import { Locale, UI_TEXT } from "@/lib/i18n";
+
+export function OracleLoader({ locale }: { locale: Locale }) {
   return (
     <div className="flex flex-col items-center gap-4 py-4">
       <div className="relative w-20 h-20 flex items-center justify-center">
@@ -47,7 +49,7 @@ export function OracleLoader() {
           />
         ))}
       </div>
-      <p className="text-violet-300 text-sm italic">Карты раскрывают тайну…</p>
+      <p className="text-violet-300 text-sm italic">{UI_TEXT[locale].loading}</p>
     </div>
   );
 }

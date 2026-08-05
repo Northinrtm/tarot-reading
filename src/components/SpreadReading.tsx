@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { SPREADS, CUSTOM_QUESTION_SPREAD_SLUG } from "@/data/spreads";
-import { drawReading } from "@/lib/tarot";
+import { drawReading, shuffleDeck } from "@/lib/tarot";
 import { buildStaticInterpretation } from "@/lib/interpret";
-import { Reading } from "@/types/tarot";
+import { DrawnCard, Reading } from "@/types/tarot";
 import { TarotCardView } from "@/components/TarotCardView";
 import { OracleLoader } from "@/components/OracleLoader";
+import { ManualCardPicker } from "@/components/ManualCardPicker";
 
 export function SpreadReading() {
   const [spreadSlug, setSpreadSlug] = useState(SPREADS[0].slug);
@@ -14,12 +15,14 @@ export function SpreadReading() {
   const [reading, setReading] = useState<Reading | null>(null);
   const [interpretation, setInterpretation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [manualDeck, setManualDeck] = useState<DrawnCard[]>([]);
+  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
 
   const spread = SPREADS.find((s) => s.slug === spreadSlug)!;
   const isCustom = spreadSlug === CUSTOM_QUESTION_SPREAD_SLUG;
+  const isManual = spread.selectionMode === "manual";
 
-  async function handleDraw() {
-    const newReading = drawReading(spread);
+  async function requestInterpretation(newReading: Reading) {
     setReading(newReading);
     setInterpretation("");
     setLoading(true);
@@ -47,6 +50,35 @@ export function SpreadReading() {
     }
   }
 
+  function handleDraw() {
+    void requestInterpretation(drawReading(spread));
+  }
+
+  function startManualSelection() {
+    setManualDeck(shuffleDeck());
+    setSelectedIndexes([]);
+    setReading(null);
+    setInterpretation("");
+    setLoading(false);
+  }
+
+  function handleManualSelect(index: number) {
+    if (selectedIndexes.includes(index) || selectedIndexes.length >= spread.positions.length) {
+      return;
+    }
+
+    const nextIndexes = [...selectedIndexes, index];
+    setSelectedIndexes(nextIndexes);
+
+    if (nextIndexes.length === spread.positions.length) {
+      void requestInterpretation({
+        spread,
+        cards: nextIndexes.map((deckIndex) => manualDeck[deckIndex]),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="flex flex-col items-center gap-3">
@@ -55,6 +87,9 @@ export function SpreadReading() {
           onChange={(e) => {
             setSpreadSlug(e.target.value);
             setReading(null);
+            setManualDeck([]);
+            setSelectedIndexes([]);
+            setInterpretation("");
           }}
           className="bg-violet-950 border border-violet-400/40 rounded-md px-3 py-2 text-violet-100"
         >
@@ -82,25 +117,36 @@ export function SpreadReading() {
           </div>
         )}
         <button
-          onClick={handleDraw}
+          onClick={isManual ? startManualSelection : handleDraw}
           className="mt-2 px-6 py-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
         >
-          Разложить карты
+          {isManual && manualDeck.length > 0 ? "Перемешать ещё раз" : isManual ? "Перемешать колоду" : "Разложить карты"}
         </button>
       </div>
 
+      {isManual && manualDeck.length > 0 && (
+        <ManualCardPicker
+          deck={manualDeck}
+          positions={spread.positions}
+          selectedIndexes={selectedIndexes}
+          onSelect={handleManualSelect}
+        />
+      )}
+
       {reading && (
         <div className="flex flex-col items-center gap-6 w-full">
-          <div className="flex flex-wrap justify-center gap-6">
-            {reading.cards.map((drawn, i) => (
-              <div key={i} className="flex flex-col items-center gap-2">
-                <span className="text-violet-400 text-xs uppercase tracking-wide">
-                  {reading.spread.positions[i].label}
-                </span>
-                <TarotCardView {...drawn} />
-              </div>
-            ))}
-          </div>
+          {!isManual && (
+            <div className="flex flex-wrap justify-center gap-6">
+              {reading.cards.map((drawn, i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <span className="text-violet-400 text-xs uppercase tracking-wide">
+                    {reading.spread.positions[i].label}
+                  </span>
+                  <TarotCardView {...drawn} />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="text-violet-100 bg-violet-950/60 border border-violet-400/30 rounded-lg p-6 max-w-xl w-full text-sm leading-relaxed shadow-lg">
             {loading ? (

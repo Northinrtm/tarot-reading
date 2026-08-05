@@ -28,6 +28,18 @@ export const SPREADS: SpreadDef[] = [
     ],
   },
   {
+    slug: "manual-situation-obstacle-advice",
+    name: "Выбрать карты самому",
+    description:
+      "Расклад «Ситуация · Препятствие · Совет»: перемешайте колоду и интуитивно выберите три карты.",
+    selectionMode: "manual",
+    positions: [
+      { id: "situation", label: "Ситуация", hint: "Что происходит сейчас" },
+      { id: "obstacle", label: "Препятствие", hint: "Что мешает двигаться вперёд" },
+      { id: "advice", label: "Совет", hint: "Как лучше действовать дальше" },
+    ],
+  },
+  {
     slug: "custom-question",
     name: "Свой вопрос",
     description: "Расклад из 5 карт под ваш собственный вопрос или мысль.",

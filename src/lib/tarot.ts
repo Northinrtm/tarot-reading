@@ -1,5 +1,5 @@
 import { CARDS } from "@/data/cards";
-import { CardDef, DrawnCard, Reading, SpreadDef } from "@/types/tarot";
+import { DrawnCard, Reading, SpreadDef } from "@/types/tarot";
 
 function shuffle<T>(items: T[]): T[] {
   const deck = [...items];
@@ -11,15 +11,18 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export function drawReading(spread: SpreadDef, allowReversed = true): Reading {
-  const drawn: CardDef[] = shuffle(CARDS).slice(0, spread.positions.length);
-  const cards: DrawnCard[] = drawn.map((card) => ({
-    card,
-    reversed: allowReversed && Math.random() < 0.5,
-  }));
+  const cards = shuffleDeck(allowReversed).slice(0, spread.positions.length);
 
   return {
     spread,
     cards,
     createdAt: new Date().toISOString(),
   };
+}
+
+export function shuffleDeck(allowReversed = true): DrawnCard[] {
+  return shuffle(CARDS).map((card) => ({
+    card,
+    reversed: allowReversed && Math.random() < 0.5,
+  }));
 }

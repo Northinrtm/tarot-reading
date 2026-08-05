@@ -1,11 +1,17 @@
 import Image from "next/image";
 import { DrawnCard } from "@/types/tarot";
 
-export function TarotCardView({ card, reversed }: DrawnCard) {
+interface TarotCardViewProps extends DrawnCard {
+  compact?: boolean;
+}
+
+export function TarotCardView({ card, reversed, compact = false }: TarotCardViewProps) {
+  const width = compact ? "w-20 sm:w-32" : "w-32";
+
   return (
-    <div className="flex flex-col items-center gap-2 w-32">
+    <div className={`flex flex-col items-center gap-2 ${width}`}>
       <div
-        className={`relative w-32 aspect-[825/1429] rounded-lg overflow-hidden border border-violet-400/40 bg-violet-950 shadow-lg transition-transform ${
+        className={`relative aspect-[825/1429] ${width} rounded-lg overflow-hidden border border-violet-400/40 bg-violet-950 shadow-lg transition-transform ${
           reversed ? "rotate-180" : ""
         }`}
       >
@@ -13,7 +19,7 @@ export function TarotCardView({ card, reversed }: DrawnCard) {
           src={card.image}
           alt={card.name}
           fill
-          sizes="128px"
+          sizes={compact ? "(min-width: 640px) 128px, 80px" : "128px"}
           className="object-cover"
         />
       </div>

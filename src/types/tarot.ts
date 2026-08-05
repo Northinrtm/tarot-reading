@@ -28,6 +28,7 @@ export interface SpreadDef {
   name: string;
   description: string;
   positions: SpreadPosition[];
+  selectionMode?: "random" | "manual";
 }
 
 export interface Reading {

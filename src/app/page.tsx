@@ -50,7 +50,7 @@ export default function Home() {
   const text = UI_TEXT[locale];
 
   return (
-    <div className="relative flex min-h-screen flex-1 flex-col items-center bg-gradient-to-b from-black via-indigo-950 to-black px-6 py-16">
+    <div className="relative flex min-h-screen flex-1 flex-col items-center bg-yellow-400 px-6 py-16">
       <div
         className="absolute right-4 top-4 flex rounded-lg border border-violet-400/30 bg-violet-950/70 p-1 text-xs font-medium"
         aria-label={locale === "ru" ? "Выбор языка" : "Language selector"}

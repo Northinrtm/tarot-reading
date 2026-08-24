@@ -3,7 +3,15 @@ import { Reading } from "@/types/tarot";
 import { CUSTOM_QUESTION_SPREAD_SLUG } from "@/data/spreads";
 import { getCardName, getPositionLabel, getSpreadDescription, getSpreadName, Locale } from "@/lib/i18n";
 
-const GROQ_MODEL = "llama-3.1-8b-instant";
+/**
+ * Модели перебираются по порядку: если Groq снимает модель с обслуживания
+ * (404 model_not_found), запрос повторяется на следующей, а не падает в статику.
+ */
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+];
 
 /**
  * Собирает трактовку расклада из фиксированных значений карт.
@@ -139,19 +147,34 @@ async function requestGroqInterpretation(
   question: string | undefined,
   locale: Locale,
 ): Promise<string | undefined> {
-  const completion = await groq.chat.completions.create({
-    model: GROQ_MODEL,
-    messages: [{ role: "user", content: buildPrompt(reading, question, locale) }],
-    temperature: 0.8,
-    max_tokens: 900,
-  });
+  const prompt = buildPrompt(reading, question, locale);
 
-  return completion.choices[0]?.message?.content?.trim();
+  for (const [i, model] of GROQ_MODELS.entries()) {
+    try {
+      const completion = await groq.chat.completions.create({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.8,
+        max_tokens: 900,
+      });
+
+      return completion.choices[0]?.message?.content?.trim();
+    } catch (error) {
+      const isLastModel = i === GROQ_MODELS.length - 1;
+      const isMissingModel = error instanceof Groq.APIError && error.status === 404;
+      if (isLastModel || !isMissingModel) {
+        throw error;
+      }
+      console.error(`Groq model ${model} is unavailable, trying the next one:`, error);
+    }
+  }
+
+  return undefined;
 }
 
 /**
- * AI-трактовка через Groq (модель llama-3.1-8b-instant, бесплатный tier
- * с лимитом 14.4K запросов/день — подходит для этого объёма трафика).
+ * AI-трактовка через Groq (список моделей — GROQ_MODELS, бесплатный tier
+ * с дневным лимитом запросов — подходит для этого объёма трафика).
  * При отсутствии GROQ_API_KEY, ошибке запроса или испорченном ответе
  * (смешение латиницы с кириллицей) используется buildStaticInterpretation.
  */

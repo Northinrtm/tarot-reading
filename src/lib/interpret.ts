@@ -141,12 +141,33 @@ function buildPrompt(reading: Reading, question: string | undefined, locale: Loc
 // поэтому наличие латинских букв в ответе — верный признак сбоя модели.
 const LATIN_LETTERS = /[a-zA-Z]/;
 
+/**
+ * Запас на 250-350 слов трактовки: русский текст расходует ~3 токена на слово,
+ * а reasoning-модели (gpt-oss) тратят часть бюджета на скрытые рассуждения.
+ */
+const MAX_COMPLETION_TOKENS = 3000;
+
+interface GroqAttempt {
+  text: string | undefined;
+  /** Ответ оборвался на середине фразы, потому что упёрся в лимит токенов. */
+  truncated: boolean;
+}
+
+/**
+ * Обрезает текст до последнего завершённого предложения — чтобы обрыв по лимиту
+ * токенов не показывался человеку как фраза, оборванная на запятой.
+ */
+function trimToLastSentence(text: string): string {
+  const match = text.match(/^[\s\S]*[.!?…]["»”]?/);
+  return (match ? match[0] : text).trim();
+}
+
 async function requestGroqInterpretation(
   groq: Groq,
   reading: Reading,
   question: string | undefined,
   locale: Locale,
-): Promise<string | undefined> {
+): Promise<GroqAttempt> {
   const prompt = buildPrompt(reading, question, locale);
 
   for (const [i, model] of GROQ_MODELS.entries()) {
@@ -155,10 +176,14 @@ async function requestGroqInterpretation(
         model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.8,
-        max_tokens: 900,
+        max_tokens: MAX_COMPLETION_TOKENS,
       });
 
-      return completion.choices[0]?.message?.content?.trim();
+      const choice = completion.choices[0];
+      return {
+        text: choice?.message?.content?.trim(),
+        truncated: choice?.finish_reason === "length",
+      };
     } catch (error) {
       const isLastModel = i === GROQ_MODELS.length - 1;
       const isMissingModel = error instanceof Groq.APIError && error.status === 404;
@@ -169,7 +194,7 @@ async function requestGroqInterpretation(
     }
   }
 
-  return undefined;
+  return { text: undefined, truncated: false };
 }
 
 /**
@@ -192,22 +217,28 @@ export async function interpretReading(
   try {
     const groq = new Groq({ apiKey });
 
-    let text: string | undefined;
+    let attempt: GroqAttempt = { text: undefined, truncated: false };
     const maxAttempts = 3;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      text = await requestGroqInterpretation(groq, reading, question, locale);
-      if (text && (locale === "en" || !LATIN_LETTERS.test(text))) {
+    for (let i = 1; i <= maxAttempts; i++) {
+      attempt = await requestGroqInterpretation(groq, reading, question, locale);
+      const hasLatin = locale === "ru" && LATIN_LETTERS.test(attempt.text ?? "");
+      if (attempt.text && !hasLatin && !attempt.truncated) {
         break;
       }
-      console.error(`Groq response invalid on attempt ${attempt}/${maxAttempts}:`, text);
+      console.error(
+        `Groq response invalid on attempt ${i}/${maxAttempts} (truncated: ${attempt.truncated}):`,
+        attempt.text,
+      );
     }
 
+    const { text, truncated } = attempt;
     if (!text || (locale === "ru" && LATIN_LETTERS.test(text))) {
       console.error("Groq response still invalid after all attempts, falling back to static text");
       return buildStaticInterpretation(reading, locale);
     }
 
-    return text;
+    // Все попытки оборвались по лимиту — показываем то, что успело договориться.
+    return truncated ? trimToLastSentence(text) : text;
   } catch (error) {
     console.error("Groq interpretation failed, falling back to static text:", error);
     return buildStaticInterpretation(reading, locale);
